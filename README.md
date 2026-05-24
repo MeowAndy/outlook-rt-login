@@ -8,11 +8,14 @@
 
 工具会使用 `client_id + refresh_token` 换取 Microsoft access_token，再通过 Outlook IMAP XOAUTH2 读取 `INBOX` 和 `Junk` 最新邮件，提取 4-8 位数字验证码。
 
+Web 端支持直接粘贴多行，也支持上传 `.txt` 文件；TXT 里一行一个账号即可。
+
 > 密码字段只是兼容账号导出格式，当前不会用于登录，也不会保存。
 
 ## 特性
 
 - Web 页面直接输入账号串获取验证码
+- 支持上传 TXT 批量读取多个邮箱（一行一个账号，单次最多 50 个）
 - CLI 支持 Windows / Linux / macOS
 - 同时扫描收件箱和垃圾箱
 - 支持关键词过滤
@@ -35,6 +38,14 @@ HOST=0.0.0.0 PORT=8765 python -m outlook_rt_login.web
 ```
 
 打开：`http://127.0.0.1:8765`
+
+### TXT 批量格式
+
+```text
+email1@outlook.com----password----client_id----refresh_token
+email2@outlook.com----password----client_id----refresh_token
+# 以 # 开头的行会被忽略
+```
 
 ## Windows 运行
 

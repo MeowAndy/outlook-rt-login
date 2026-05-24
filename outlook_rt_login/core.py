@@ -47,10 +47,51 @@ def parse_combo(combo: str) -> AccountInput:
     Password is accepted for compatibility with account exports, but OAuth IMAP uses
     refresh_token + client_id; the password is not sent anywhere by this tool.
     """
-    parts = [p.strip() for p in (combo or "").strip().split("----", 3)]
+    normalized = normalize_combo_line(combo)
+    parts = [p.strip() for p in normalized.split("----", 3)]
     if len(parts) != 4 or "@" not in parts[0] or not parts[2] or not parts[3]:
         raise ValueError("格式应为：邮箱----密码----client_id----refresh_token")
     return AccountInput(parts[0], parts[1], parts[2], parts[3])
+
+
+def normalize_combo_line(line: str) -> str:
+    """Normalize common separators copied from chats or TXT exports."""
+    value = (line or "").strip().lstrip("\ufeff")
+    for sep in ("——", "————", "－－", "———"):
+        value = value.replace(sep, "----")
+    return value
+
+
+def parse_combo_lines(text: str, *, max_accounts: int = 50) -> tuple[list[AccountInput], list[dict[str, str]]]:
+    """Parse multiple account lines from a textarea/TXT file.
+
+    Empty lines and comment lines beginning with # are ignored. Invalid lines are
+    returned as structured errors instead of aborting the whole batch.
+    """
+    accounts: list[AccountInput] = []
+    errors: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for line_no, raw in enumerate((text or "").splitlines(), 1):
+        line = normalize_combo_line(raw)
+        if not line or line.startswith("#"):
+            continue
+        try:
+            account = parse_combo(line)
+        except Exception as exc:
+            errors.append({"line": str(line_no), "error": str(exc), "preview": line[:120]})
+            continue
+        dedupe_key = account.email.lower()
+        if dedupe_key in seen:
+            errors.append({"line": str(line_no), "error": "重复邮箱，已跳过", "preview": account.email})
+            continue
+        seen.add(dedupe_key)
+        accounts.append(account)
+        if len(accounts) >= max_accounts:
+            remaining = len([x for x in (text or "").splitlines()[line_no:] if normalize_combo_line(x) and not normalize_combo_line(x).startswith("#")])
+            if remaining:
+                errors.append({"line": str(line_no), "error": f"已达到单次最多 {max_accounts} 个账号限制，后续 {remaining} 行已跳过", "preview": ""})
+            break
+    return accounts, errors
 
 
 def decode_header_value(value: str | None) -> str:
