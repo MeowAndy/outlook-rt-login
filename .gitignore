@@ -1,0 +1,8 @@
+.venv/
+.deps/
+__pycache__/
+*.py[cod]
+.env
+*.log
+outlook.txt
+accounts.txt

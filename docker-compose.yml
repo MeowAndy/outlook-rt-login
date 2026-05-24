@@ -1,0 +1,9 @@
+services:
+  outlook-rt-login:
+    build: .
+    container_name: outlook-rt-login
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    environment:
+      - PORT=8765

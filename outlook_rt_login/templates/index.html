@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Outlook RT Login 接码助手</title>
+  <style>
+    :root{color-scheme:dark;--bg:#07101d;--card:#111d31cc;--muted:#91a4c5;--text:#edf6ff;--line:#223654;--pri:#60a5fa;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24}*{box-sizing:border-box}body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial;background:radial-gradient(circle at 20% 0%,#1f4c7f 0,#07101d 46%,#050912 100%);color:var(--text)}.wrap{max-width:1120px;margin:auto;padding:30px 14px 70px}.hero{display:flex;gap:14px;align-items:center;margin-bottom:18px}.logo{font-size:42px}.title h1{font-size:30px;margin:0}.title p{margin:7px 0 0;color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 22px 70px #0006;backdrop-filter:blur(8px)}label{display:block;color:var(--muted);font-size:13px;margin-bottom:7px}textarea,input{width:100%;background:#07101f;border:1px solid #2a4164;border-radius:14px;color:var(--text);padding:12px;outline:none}textarea{min-height:108px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.grid{grid-template-columns:1fr}}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.btn{border:0;border-radius:13px;padding:12px 17px;background:linear-gradient(135deg,#60a5fa,#818cf8);color:white;font-weight:800;cursor:pointer}.btn.secondary{background:#17243a;border:1px solid #2b4265;color:#d9e8ff}.btn:disabled{opacity:.55;cursor:not-allowed}.hint{color:var(--muted);font-size:13px;line-height:1.55}.status{white-space:pre-wrap}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.pill{display:inline-block;border:1px solid #2b4265;border-radius:999px;padding:3px 8px;color:#b7c9e8;font-size:12px}.mail{border-top:1px solid var(--line);padding:15px 0}.mail:first-child{border-top:0}.meta{color:var(--muted);font-size:13px}.subject{font-size:17px;font-weight:800;margin:5px 0}.codes{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}.code{font-size:22px;font-weight:950;letter-spacing:1px;background:#052e2b;color:#6ee7b7;border:1px solid #176b5f;border-radius:11px;padding:7px 11px}.body{color:#d7e6fb;background:#07101f;border:1px solid #22314f;border-radius:13px;padding:12px;white-space:pre-wrap;max-height:280px;overflow:auto}.toolbar{justify-content:space-between}.small{font-size:12px}.copy{font-size:12px;padding:5px 8px;border-radius:8px;background:#12314d;border:1px solid #285176;color:#dff1ff;cursor:pointer}
+  </style>
+</head>
+<body><div class="wrap">
+  <div class="hero"><div class="logo">📮</div><div class="title"><h1>Outlook RT Login 接码助手</h1><p>输入 <b>邮箱----密码----client_id----refresh_token</b>，读取 INBOX/Junk 最新邮件并提取验证码。</p></div></div>
+  <div class="card">
+    <label>账号信息（密码字段仅兼容格式，本工具不会使用密码登录）</label>
+    <textarea id="combo" autocomplete="off" spellcheck="false" placeholder="email@outlook.com----password----client_id----refresh_token"></textarea>
+    <div class="grid" style="margin-top:12px">
+      <div><label>每个文件夹读取最近 N 封</label><input id="limit" type="number" value="10" min="1" max="100"></div>
+      <div><label>关键词过滤（可空，如 verification / login / GitHub）</label><input id="keyword" placeholder="可不填"></div>
+    </div>
+    <div class="row toolbar" style="margin-top:14px">
+      <div class="row"><button class="btn" id="fetchBtn" onclick="fetchCodes()">获取验证码</button><button class="btn secondary" onclick="clearInput()">清空输入</button></div>
+      <span class="hint">不落库、不保存、不回显 refresh_token。</span>
+    </div>
+  </div>
+  <div class="card"><div id="status" class="status hint">等待输入。当前版本：{{ version }}</div></div>
+  <div class="card"><div class="row"><span class="pill">INBOX</span><span class="pill">Junk</span><span class="pill">OAuth XOAUTH2</span><span class="pill">Win/Linux</span></div><div id="results"></div></div>
+</div>
+<script>
+function clearInput(){document.getElementById('combo').value='';document.getElementById('results').innerHTML='';document.getElementById('status').textContent='已清空。'}
+async function fetchCodes(){
+  const btn=document.getElementById('fetchBtn'), st=document.getElementById('status'), res=document.getElementById('results');
+  const combo=document.getElementById('combo').value.trim();
+  if(!combo){st.innerHTML='<span class="bad">请先输入账号信息。</span>';return;}
+  btn.disabled=true;res.innerHTML='';st.textContent='正在获取 access_token、登录 Outlook IMAP、扫描邮件...';
+  try{
+    const r=await fetch('/api/fetch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({combo,limit:Number(document.getElementById('limit').value||10),keyword:document.getElementById('keyword').value})});
+    const data=await r.json();
+    if(!r.ok||!data.ok){st.innerHTML='<span class="bad">失败：</span>'+escapeHtml(data.error||'未知错误');return;}
+    st.innerHTML='<span class="ok">成功。</span> '+escapeHtml(data.summary||'')+(data.refresh_token_rotated?'<br><span class="warn">注意：refresh_token 已轮换，下面会显示新 token，请复制更新。</span><br><textarea readonly>'+escapeHtml(data.new_refresh_token||'')+'</textarea>':'');
+    res.innerHTML=(data.mails||[]).map((m,idx)=>mailHtml(m,idx)).join('') || '<p class="hint">没有匹配邮件。</p>';
+  }catch(e){st.innerHTML='<span class="bad">请求异常：</span>'+escapeHtml(String(e));}
+  finally{btn.disabled=false;}
+}
+function mailHtml(m,idx){const codes=(m.codes||[]);return `<div class="mail"><div class="meta">${escapeHtml(m.mailbox)} · ${escapeHtml(m.date||'')} · ${escapeHtml(m.from||'')}</div><div class="subject">${escapeHtml(m.subject||'(No Subject)')}</div><div class="codes">${codes.length?codes.map(c=>`<span class="code">${escapeHtml(c)}</span><button class="copy" onclick="copyText('${escapeAttr(c)}')">复制</button>`).join(''):'<span class="hint">未识别到 4-8 位数字验证码</span>'}</div><div class="body">${escapeHtml(m.preview||'')}</div></div>`}
+function copyText(s){navigator.clipboard&&navigator.clipboard.writeText(s)}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function escapeAttr(s){return String(s).replace(/[\\']/g,'\\$&').replace(/\n/g,' ')}
+</script></body></html>
